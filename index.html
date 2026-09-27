@@ -1,0 +1,2299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Scratch-Style Editor</title>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:#f4f4f4;color:#222;overflow:hidden}
+.topbar{height:56px;background:#333;color:#fff;display:flex;align-items:center;gap:8px;padding:0 12px;flex-wrap:wrap}
+.logo{font-weight:800;font-size:18px;white-space:nowrap}.topbar input{width:150px;padding:7px;border-radius:7px;border:0}
+.btn{border:0;border-radius:7px;padding:7px 11px;font-weight:700;cursor:pointer;font-size:13px}.run{background:#4caf50;color:#fff}.stop{background:#e53935;color:#fff}.small{padding:6px 9px}
+.btn.save{background:#2196f3;color:#fff}.btn.load{background:#ff9800;color:#fff}.btn.new{background:#607d8b;color:#fff}
+.projects-menu{position:absolute;top:56px;right:12px;background:#fff;border:1px solid #ccc;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:100;min-width:280px;max-height:340px;overflow:auto;display:none}
+.projects-menu.open{display:block}
+.projects-menu .pm-title{padding:10px 12px;font-weight:700;background:#eee;border-bottom:1px solid #ddd;font-size:13px;color:#333}
+.projects-menu .pm-item{padding:9px 12px;cursor:pointer;font-size:13px;color:#222;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f0f0}
+.projects-menu .pm-item:hover{background:#e3f2fd}
+.projects-menu .pm-item .pm-del{background:#e53935;color:#fff;border:0;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer}
+.projects-menu .pm-empty{padding:16px;text-align:center;color:#999;font-size:13px}
+.projects-menu .pm-actions{padding:8px 12px;display:flex;gap:6px;border-top:1px solid #eee}
+.projects-menu .pm-actions button{flex:1;font-size:12px}
+.editor{height:calc(100vh - 56px);display:grid;grid-template-columns:300px minmax(450px,1fr) 270px;gap:8px;padding:8px}
+.panel{background:#fff;border:1px solid #cfcfcf;border-radius:8px;overflow:hidden;min-width:0}
+.panel-title{padding:9px 11px;font-weight:700;background:#eee;border-bottom:1px solid #ccc}
+.tabs{display:flex;background:#ddd}.tabs button{flex:1;border:0;border-radius:0;padding:9px;background:#ddd;font-weight:700;cursor:pointer}.tabs button.active{background:#fff}
+.categories{display:grid;grid-template-columns:1fr 1fr;padding:8px;gap:5px}
+.cat{padding:8px;border-radius:6px;color:#fff;text-align:center;font-size:12px;font-weight:700;cursor:pointer}
+.motion{background:#4c97ff}.looks{background:#9966ff}.sound{background:#cf63cf}.events{background:#ffbf00;color:#222}
+.control{background:#ffab19}.sensing{background:#5cb1d6}.operators{background:#59c059}.variables{background:#ff8c1a}.myblocks{background:#ff6680}
+.blocks{height:calc(100% - 183px);overflow:auto;padding:9px}
+.block{display:flex;align-items:center;gap:5px;color:#fff;padding:8px 9px;border-radius:7px;margin:6px 0;width:max-content;max-width:278px;cursor:grab;user-select:none;font-size:13px;font-weight:600;box-shadow:0 1px 1px rgba(0,0,0,.1)}
+.block input,.block select{width:58px;min-width:45px;padding:3px 5px;border:0;border-radius:4px;font-weight:700;background:#fff;color:#222}
+.block input.long{width:95px}.block input.wide{width:110px}.block input.short{width:42px}
+.block .bubble{background:#fff;color:#222;border-radius:12px;padding:2px 6px}
+.workspace{position:relative;background:#fafafa;overflow:hidden}
+.stage-wrap{height:56%;padding:12px;background:#e7e7e7}.stage{height:100%;background:#fff;border:2px solid #aaa;border-radius:6px;position:relative;overflow:hidden}
+.stage-controls{position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px}.say-bubble{position:absolute;display:none;max-width:220px;padding:10px 14px;background:#fff;border:2px solid #777;border-radius:18px;font-size:18px;line-height:1.2;z-index:4;box-shadow:0 2px 5px rgba(0,0,0,.15);transform:translate(-50%,-100%);pointer-events:none}.say-bubble:after{content:"";position:absolute;left:28px;bottom:-12px;border-width:12px 10px 0 0;border-style:solid;border-color:#777 transparent transparent transparent}.say-bubble:before{content:"";position:absolute;left:29px;bottom:-9px;border-width:9px 8px 0 0;border-style:solid;border-color:#fff transparent transparent transparent;z-index:2}.sprite{position:absolute;left:50%;top:50%;font-size:58px;transform:translate(-50%,-50%);user-select:none;cursor:pointer}
+.code-area{height:44%;border-top:1px solid #bbb;position:relative}.dropzone{position:absolute;inset:42px 0 0;padding:10px;overflow:auto}
+.drop-block{position:relative;margin:4px 0;width:max-content;max-width:100%;cursor:default}
+.drop-block .block{margin:0}.delete-x{position:absolute;right:-21px;top:4px;background:#555;color:#fff;border-radius:50%;font-size:10px;width:18px;height:18px;display:none;cursor:pointer;text-align:center;line-height:18px}
+.drop-block:hover .delete-x{display:block}.hint{text-align:center;color:#999;margin:35px 10px}
+.right-content{padding:12px}.sprite-preview{height:100px;background:#eee;border-radius:8px;display:flex;justify-content:center;align-items:center;font-size:60px}
+.row{display:flex;gap:7px;margin-top:9px}.row>*{flex:1} input.textbox{width:100%;padding:8px;border:1px solid #bbb;border-radius:6px}
+.list{margin-top:12px;border-top:1px solid #ddd;padding-top:8px}.list-item{padding:7px;background:#f2f2f2;border-radius:5px;margin-top:5px;cursor:pointer}
+.variables-box{padding:9px}.var{display:flex;justify-content:space-between;align-items:center;background:#f5f5f5;border-radius:6px;margin:5px 0;padding:7px}
+.hidden{display:none}
+.help{padding:9px;font-size:12px;color:#666;border-top:1px solid #ddd}
+.code-area .panel-title{position:absolute;left:0;right:0;top:0}
+#thinkBubble{position:absolute;display:none;max-width:220px;padding:10px 14px;background:#f5f5f5;border:2px solid #777;border-radius:18px;font-size:18px;line-height:1.2;z-index:4;box-shadow:0 2px 5px rgba(0,0,0,.15);transform:translate(-50%,-100%);pointer-events:none}#thinkBubble:before{content:"";position:absolute;width:10px;height:10px;border:2px solid #777;border-radius:50%;background:#f5f5f5;left:22px;bottom:-18px}#thinkBubble:after{content:"";position:absolute;width:5px;height:5px;border:2px solid #777;border-radius:50%;background:#f5f5f5;left:10px;bottom:-28px}
+.sounds-panel{padding:12px;height:calc(100% - 40px);overflow:auto;display:flex;flex-direction:column;gap:10px}
+.sound-actions{display:flex;gap:8px;flex-wrap:wrap}
+.sound-actions .btn{flex:1;min-width:110px}
+.sound-list{flex:1;overflow:auto;border:1px solid #ddd;border-radius:8px;background:#fafafa;min-height:120px}
+.sound-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #eee;font-size:13px}
+.sound-item:last-child{border-bottom:0}
+.sound-item .name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sound-item .dur{color:#888;font-size:11px;min-width:36px}
+.sound-item button{padding:4px 8px;font-size:12px;border:0;border-radius:5px;cursor:pointer;font-weight:700}
+.sound-item .play-btn{background:#4caf50;color:#fff}
+.sound-item .del-btn{background:#e53935;color:#fff}
+.rec-status{padding:8px;border-radius:6px;background:#fff3e0;border:1px solid #ffcc80;font-size:13px;display:none}
+.rec-status.active{display:block}
+.rec-status.recording{background:#ffebee;border-color:#ef9a9a;font-weight:700}
+.sound-hint{font-size:12px;color:#666;line-height:1.4}
+input[type="file"].hidden-file{display:none}
+.rec-timer{font-variant-numeric:tabular-nums;margin-left:6px}
+.save-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:none;align-items:center;justify-content:center}
+.save-modal-bg.open{display:flex}
+.save-modal{background:#fff;border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);color:#222}
+.save-modal h2{margin:0 0 8px;font-size:20px}
+.save-modal p{margin:0 0 14px;font-size:14px;line-height:1.45;color:#444}
+.save-modal input{width:100%;padding:10px;border:1px solid #bbb;border-radius:8px;font-size:15px;margin-bottom:14px}
+.save-modal .sm-actions{display:flex;flex-direction:column;gap:8px}
+.save-modal .sm-actions a,.save-modal .sm-actions button{display:block;text-align:center;padding:12px;border-radius:8px;font-weight:700;font-size:15px;border:0;cursor:pointer;text-decoration:none}
+.save-modal .sm-dl{background:#2196f3;color:#fff}
+.save-modal .sm-store{background:#4caf50;color:#fff}
+.save-modal .sm-cancel{background:#eee;color:#333}
+.confirm-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3000;display:none;align-items:center;justify-content:center}
+.confirm-modal-bg.open{display:flex}
+.confirm-modal{background:#fff;color:#222;border-radius:12px;padding:24px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.35);text-align:center}
+.confirm-modal h2{margin:0 0 10px;font-size:18px}
+.confirm-modal p{margin:0 0 18px;font-size:14px;line-height:1.45;color:#555}
+.confirm-modal .cm-btns{display:flex;gap:10px}
+.confirm-modal .cm-btns button{flex:1;padding:12px;border:0;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer}
+.confirm-modal .cm-yes{background:#e53935;color:#fff}
+.confirm-modal .cm-no{background:#eee;color:#333}
+.edge-banner{display:none;background:#1565c0;color:#fff;padding:8px 14px;font-size:13px;text-align:center;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.edge-banner.show{display:flex}
+.edge-banner button{border:0;border-radius:6px;padding:6px 10px;font-weight:700;cursor:pointer;background:#fff;color:#1565c0}
+.welcome-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px}
+.welcome-card{background:#fff;color:#222;border-radius:14px;padding:28px 24px;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.welcome-card h1{margin:0 0 8px;font-size:22px}
+.welcome-card p{margin:0 0 10px;font-size:14px;line-height:1.5;color:#444}
+.welcome-card ol{margin:0 0 16px;padding-left:20px;font-size:14px;line-height:1.6;color:#333}
+.welcome-card .w-go{width:100%;padding:14px;border:0;border-radius:10px;background:#4caf50;color:#fff;font-weight:800;font-size:16px;cursor:pointer}
+.btn.help{background:#7e57c2;color:#fff}
+.clone-counter{position:absolute;top:4px;left:4px;background:#ff6680;color:#fff;font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;z-index:6}
+
+/* Emoji picker */
+.emoji-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:4000;display:none;align-items:center;justify-content:center;padding:16px}
+.emoji-modal-bg.open{display:flex}
+.emoji-modal{background:#fff;color:#222;border-radius:14px;padding:20px;max-width:520px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.emoji-modal h2{margin:0 0 6px;font-size:20px}
+.emoji-modal p{margin:0 0 14px;font-size:13px;color:#666}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+.emoji-cell{font-size:30px;text-align:center;padding:8px 4px;border-radius:8px;cursor:pointer;background:#f5f5f5;transition:transform .08s,background .15s;user-select:none}
+.emoji-cell:hover{background:#e3f2fd;transform:scale(1.15)}
+.emoji-modal .em-actions{margin-top:16px;display:flex;gap:8px}
+.emoji-modal .em-actions button{flex:1;padding:10px;border:0;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px}
+.emoji-modal .em-close{background:#eee;color:#333}
+
+/* Sprite list */
+.sprite-item{display:flex;align-items:center;gap:8px;padding:7px 9px;background:#f2f2f2;border-radius:6px;margin-top:5px;cursor:pointer;border:2px solid transparent}
+.sprite-item.active{background:#e3f2fd;border-color:#2196f3}
+.sprite-item .s-emoji{font-size:24px}
+.sprite-item .s-name{flex:1;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sprite-item .s-del{background:#e53935;color:#fff;border:0;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">Scratch Editor</div>
+  <input id="projectName" value="Untitled Project" title="Project name" placeholder="Project name">
+  <button class="btn run" onclick="runProject()">▶ Run</button>
+  <button class="btn stop" onclick="stopProject()">■ Stop</button>
+  <button class="btn save" onclick="doSave()" title="Save project file">💾 Save</button>
+  <button class="btn load" onclick="doOpen()" title="Open project file">📂 Open</button>
+  <button class="btn new" onclick="newProject()" title="Start a new empty project">＋ New</button>
+  <button class="btn help" onclick="showWelcome(true)" title="Help">❓ Help</button>
+  <span style="margin-left:auto;font-size:12px;opacity:.8">For everyone · Edge · Chrome · Firefox</span>
+</div>
+<div class="edge-banner" id="edgeBanner"></div>
+
+<!-- Welcome -->
+<div class="welcome-bg" id="welcomeBg">
+  <div class="welcome-card">
+    <h1>🐱 Scratch Editor</h1>
+    <p>Make games and animations with blocks — no install needed.</p>
+    <ol>
+      <li>Pick a category on the left (Motion, Looks…)</li>
+      <li>Drag blocks into <b>Scripts</b></li>
+      <li>Press <b>▶ Run</b></li>
+      <li><b>Save</b> keeps a file on your computer · <b>Open</b> loads it again</li>
+    </ol>
+    <p style="font-size:13px;color:#666">Add more sprites with <b>+ Add Sprite</b> and click one to code it.</p>
+    <button type="button" class="w-go" onclick="closeWelcome()">Let's go!</button>
+  </div>
+</div>
+
+<!-- Emoji picker modal -->
+<div class="emoji-modal-bg" id="emojiModalBg">
+  <div class="emoji-modal">
+    <h2>Choose a sprite</h2>
+    <p>Click an emoji to add it as a new sprite. You can then code it just like the Cat.</p>
+    <div class="emoji-grid" id="emojiGrid"></div>
+    <div class="em-actions">
+      <button type="button" class="em-close" onclick="closeEmojiPicker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="projectsMenu" class="projects-menu">
+  <div class="pm-title">📂 Open from your computer</div>
+  <div id="projectsList"><div class="pm-empty">Click <b>Open file…</b> to pick a project from File Explorer.<br><br>Recent saves (this browser session) appear below.</div></div>
+  <div class="pm-actions">
+    <button class="btn small load" onclick="openFromDevice()">📁 Open file…</button>
+    <button class="btn small save" onclick="saveProject()">💾 Save…</button>
+  </div>
+</div>
+<input type="file" id="projectFileInput" accept=".json,application/json" style="display:none" onchange="uploadProject(event)">
+
+<!-- Save modal -->
+<div class="save-modal-bg" id="saveModalBg">
+  <div class="save-modal">
+    <h2>💾 Save to your computer</h2>
+    <p>Type a name, then click <b>Save to folder…</b> — your device's File Explorer will open so you can choose any folder.</p>
+    <input type="text" id="saveModalName" placeholder="Project name" value="My Project">
+    <div class="sm-actions">
+      <button type="button" class="sm-store" onclick="saveToDeviceFolder()">📁 Save to folder…</button>
+      <a class="sm-dl" id="saveModalDownload" href="#" download="project.json">⬇ Download instead</a>
+      <button type="button" class="sm-cancel" onclick="closeSaveModal()">Cancel</button>
+    </div>
+    <p id="saveModalHint" style="margin-top:12px;font-size:12px;color:#888">Opens the real File Explorer / Finder on your device.</p>
+  </div>
+</div>
+
+<!-- Yes / No confirm -->
+<div class="confirm-modal-bg" id="confirmModalBg">
+  <div class="confirm-modal">
+    <h2 id="confirmTitle">Are you sure?</h2>
+    <p id="confirmMessage">Unsaved changes will be lost.</p>
+    <div class="cm-btns">
+      <button type="button" class="cm-yes" id="confirmYesBtn">Yes</button>
+      <button type="button" class="cm-no" id="confirmNoBtn">No</button>
+    </div>
+  </div>
+</div>
+
+<div class="editor">
+  <section class="panel">
+    <div class="panel-title">Blocks</div>
+    <div class="tabs">
+      <button class="active" onclick="setTab(this,'code')">Code</button>
+      <button onclick="setTab(this,'costumes')">Costumes</button>
+      <button onclick="setTab(this,'sounds')">Sounds</button>
+    </div>
+    <div id="codeTab">
+      <div class="categories">
+        <div class="cat motion" data-cat="motion">Motion</div>
+        <div class="cat looks" data-cat="looks">Looks</div>
+        <div class="cat sound" data-cat="sound">Sound</div>
+        <div class="cat events" data-cat="events">Events</div>
+        <div class="cat control" data-cat="control">Control</div>
+        <div class="cat sensing" data-cat="sensing">Sensing</div>
+        <div class="cat operators" data-cat="operators">Operators</div>
+        <div class="cat variables" data-cat="variables">Variables</div>
+        <div class="cat myblocks" data-cat="myblocks">My Blocks</div>
+      </div>
+      <div id="blocks" class="blocks"></div>
+    </div>
+    <div id="costumesTab" class="hidden" style="padding:12px">🎨 Costume editor can be added here.</div>
+    <div id="soundsTab" class="hidden">
+      <div class="sounds-panel">
+        <div class="sound-actions">
+          <button class="btn" style="background:#9966ff;color:#fff" onclick="document.getElementById('soundFileInput').click()">📁 Upload Sound</button>
+          <button class="btn" id="recordBtn" style="background:#e53935;color:#fff" onclick="toggleRecord()">🎤 Record</button>
+        </div>
+        <input type="file" id="soundFileInput" class="hidden-file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.webm" multiple onchange="handleSoundUpload(event)">
+        <div id="recStatus" class="rec-status">Ready to record…</div>
+        <div class="sound-hint">Upload audio files or record from your mic. Use the sound name in the Sound blocks (e.g. <b>meow</b>).</div>
+        <div class="sound-list" id="soundList">
+          <div style="padding:20px;text-align:center;color:#999;font-size:13px">No sounds yet. Upload or record one!</div>
+        </div>
+      </div>
+    </div>
+    <div class="help">Drag a block into Scripts. Edit white fields before or after dragging.</div>
+  </section>
+
+  <section class="panel workspace">
+    <div class="stage-wrap">
+      <div class="stage" id="stage">
+        <div class="stage-controls">
+          <button class="btn run small" onclick="runProject()">▶</button>
+          <button class="btn stop small" onclick="stopProject()">■</button>
+        </div>
+        <div class="say-bubble" id="sayBubble"></div><div class="think-bubble" id="thinkBubble"></div>
+        <!-- Sprites are created dynamically here -->
+      </div>
+    </div>
+    <div class="code-area">
+      <div class="panel-title">Scripts <span id="editingLabel" style="font-weight:400;font-size:12px;color:#666"></span></div>
+      <div id="dropzone" class="dropzone"><div class="hint">Drag blocks here. Double-click a block to remove it.</div></div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <div class="panel-title">Sprite</div>
+    <div class="right-content">
+      <div class="sprite-preview" id="preview">🐱</div>
+      <div class="row"><input class="textbox" id="spriteName" value="Cat" onchange="renameCurrentSprite()"></div>
+      <div class="row">
+        <button class="btn" onclick="moveCurrentSprite(-10,0)">←</button>
+        <button class="btn" onclick="moveCurrentSprite(10,0)">→</button>
+        <button class="btn" onclick="moveCurrentSprite(0,-10)">↑</button>
+        <button class="btn" onclick="moveCurrentSprite(0,10)">↓</button>
+      </div>
+      <div class="list">
+        <b>Sprite List</b>
+        <div id="spriteList"></div>
+        <button class="btn small" style="width:100%;margin-top:8px" onclick="openEmojiPicker()">+ Add Sprite</button>
+      </div>
+      <div class="list">
+        <b>Variables</b>
+        <div id="varList">
+          <div class="var"><span>score</span><span class="var-val" data-name="score">0</span></div>
+        </div>
+        <button class="btn small" style="width:100%;margin-top:6px" onclick="addVariable()">+ Make a Variable</button>
+        <button class="btn small" style="width:100%;margin-top:4px;background:#eee" onclick="deleteVariablePrompt()">− Delete a Variable</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* =====================================================================
+   SPRITE SYSTEM — multiple sprites, each with its own scripts & state
+   ===================================================================== */
+let sprites = [];       // array of sprite objects
+let currentSpriteId = 0;
+let spriteIdCounter = 0;
+
+function createSprite(emoji, name){
+  const id = spriteIdCounter++;
+  const el = document.createElement('div');
+  el.className = 'sprite';
+  el.dataset.spriteId = id;
+  el.textContent = emoji;
+  el.style.left = '50%';
+  el.style.top = '50%';
+  document.getElementById('stage').appendChild(el);
+
+  const s = {
+    id,
+    name: name || ('Sprite' + (id+1)),
+    emoji,
+    el,
+    px: 0, py: 0, dir: 90,
+    size: 100,
+    effects: {color:0,fisheye:0,whirl:0,pixelate:0,mosaic:0,brightness:0,ghost:0},
+    visible: true,
+    costume: 'costume1',
+    costumeIndex: 0,
+    costumes: ['costume1','costume2'],
+    scriptsHTML: [],       // serialized block HTML for this sprite
+    clones: [],            // active clones for this sprite
+    sayBubble: null,
+    thinkBubble: null
+  };
+  sprites.push(s);
+
+  // click on sprite selects it
+  el.addEventListener('click', (e) => {
+    if(!stopped && !isRunning) return; // during run, clicks don't select
+    selectSprite(id);
+  });
+
+  // Make stage sprite clickable for "when this sprite clicked" hats
+  el.addEventListener('click', () => {
+    if(isRunning) {
+      // fire "when this sprite clicked" for this sprite
+      fireSpriteClickHats(s);
+    }
+  });
+
+  return s;
+}
+
+function getCurrentSprite(){
+  return sprites.find(s => s.id === currentSpriteId) || sprites[0];
+}
+
+function selectSprite(id){
+  if(currentSpriteId === id) return;
+  // Save current scripts HTML from the dropzone into the current sprite
+  saveScriptsToCurrentSprite();
+  currentSpriteId = id;
+  const s = getCurrentSprite();
+  // Load this sprite's scripts into the dropzone
+  loadScriptsFromSprite(s);
+  // Update UI
+  document.getElementById('spriteName').value = s.name;
+  document.getElementById('preview').textContent = s.emoji;
+  document.getElementById('editingLabel').textContent = '— editing: ' + s.name;
+  renderSpriteList();
+  renderVarList();
+  applySpriteTransforms();
+  updateCloneBadge();
+}
+
+function saveScriptsToCurrentSprite(){
+  const s = getCurrentSprite();
+  if(!s) return;
+  s.scriptsHTML = [...dropzone.querySelectorAll('.drop-block')].map(b => {
+    const c = b.cloneNode(true);
+    c.querySelectorAll('.delete-x').forEach(x => x.remove());
+    return c.outerHTML;
+  });
+}
+
+function loadScriptsFromSprite(s){
+  dropzone.innerHTML = '';
+  if(!s.scriptsHTML || !s.scriptsHTML.length){
+    dropzone.innerHTML = '<div class="hint">Drag blocks here. Double-click a block to remove it.</div>';
+    return;
+  }
+  s.scriptsHTML.forEach(html => {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    const block = temp.firstElementChild;
+    if(!block) return;
+    block.draggable = false;
+    block.classList.add('drop-block');
+    if(!block.querySelector('.delete-x')){
+      const x = document.createElement('span');
+      x.className = 'delete-x'; x.textContent = '×';
+      x.title = 'Delete block';
+      x.onclick = () => block.remove();
+      block.appendChild(x);
+    }
+    block.addEventListener('dblclick', ev => {
+      if(ev.target.tagName !== 'INPUT' && ev.target.tagName !== 'SELECT') block.remove();
+    });
+    dropzone.appendChild(block);
+  });
+}
+
+function renderSpriteList(){
+  const box = document.getElementById('spriteList');
+  if(!box) return;
+  box.innerHTML = '';
+  sprites.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'sprite-item' + (s.id === currentSpriteId ? ' active' : '');
+    item.dataset.spriteId = s.id;
+    item.innerHTML = `
+      <span class="s-emoji">${s.emoji}</span>
+      <span class="s-name"></span>
+      <button class="s-del" type="button" title="Delete sprite">×</button>
+    `;
+    item.querySelector('.s-name').textContent = s.name;
+    item.addEventListener('click', (e) => {
+      if(e.target.closest('.s-del')) return;
+      selectSprite(s.id);
+    });
+    item.querySelector('.s-del').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteSprite(s.id);
+    });
+    box.appendChild(item);
+  });
+}
+
+async function deleteSprite(id){
+  if(sprites.length <= 1){
+    alert("You need at least one sprite.");
+    return;
+  }
+  const s = sprites.find(x => x.id === id);
+  if(!s) return;
+  if(!confirm(`Delete sprite "${s.name}"?`)) return;
+  // remove clones
+  s.clones.forEach(c => { if(c.el && c.el.parentNode) c.el.parentNode.removeChild(c.el); });
+  // remove main el
+  if(s.el && s.el.parentNode) s.el.parentNode.removeChild(s.el);
+  // remove from array
+  const idx = sprites.indexOf(s);
+  sprites.splice(idx, 1);
+  if(currentSpriteId === id){
+    currentSpriteId = sprites[0].id;
+    selectSprite(currentSpriteId);
+  } else {
+    renderSpriteList();
+  }
+  updateCloneBadge();
+}
+
+function renameCurrentSprite(){
+  const s = getCurrentSprite();
+  if(!s) return;
+  const newName = (document.getElementById('spriteName').value || '').trim() || s.name;
+  s.name = newName;
+  document.getElementById('editingLabel').textContent = '— editing: ' + s.name;
+  renderSpriteList();
+}
+
+/* =====================================================================
+   EMOJI PICKER
+   ===================================================================== */
+const EMOJI_PACK = [
+  '🐱','🐶','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮',
+  '🐷','🐸','🐵','🐔','🐧','🐦','🦆','🦉','🦇','🐺','🐗','🐴',
+  '🦄','🐝','🐛','🦋','🐌','🐞','🐜','🕷','🦂','🐢','🐍','🦎',
+  '🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈',
+  '🐊','🐅','🐆','🦓','🦍','🐘','🦏','🐪','🐫','🦒','🐃','🐄',
+  '🍎','🍊','🍋','🍌','🍉','🍇','🍓','🍒','🍑','🥝','🍍','🥥',
+  '⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🏓','🏸','🥊','🎯',
+  '⭐','🌟','✨','⚡','🔥','💧','❄️','🌈','☀️','🌙','☁️','⛅',
+  '🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚚','🚛','🚜',
+  '🚀','✈️','🚁','🛸','⛵','🚤','🛥️','🚢','🛰️','🎈','🎉','🎁'
+];
+
+function openEmojiPicker(){
+  const grid = document.getElementById('emojiGrid');
+  grid.innerHTML = '';
+  EMOJI_PACK.forEach(emoji => {
+    const cell = document.createElement('div');
+    cell.className = 'emoji-cell';
+    cell.textContent = emoji;
+    cell.addEventListener('click', () => {
+      addSpriteFromEmoji(emoji);
+      closeEmojiPicker();
+    });
+    grid.appendChild(cell);
+  });
+  document.getElementById('emojiModalBg').classList.add('open');
+}
+
+function closeEmojiPicker(){
+  document.getElementById('emojiModalBg').classList.remove('open');
+}
+
+function addSpriteFromEmoji(emoji){
+  // Save current sprite's scripts first
+  saveScriptsToCurrentSprite();
+  // Create new sprite
+  const s = createSprite(emoji, emoji);
+  s.px = 0; s.py = 0; s.dir = 90; s.size = 100;
+  // Select it
+  currentSpriteId = s.id;
+  loadScriptsFromSprite(s);
+  document.getElementById('spriteName').value = s.name;
+  document.getElementById('preview').textContent = s.emoji;
+  document.getElementById('editingLabel').textContent = '— editing: ' + s.name;
+  renderSpriteList();
+  applySpriteTransforms();
+  updateCloneBadge();
+  statusMsg('Added sprite ' + emoji + ' — now editing it');
+}
+
+/* =====================================================================
+   RENDER / TRANSFORMS
+   ===================================================================== */
+function applySpriteTransforms(){
+  sprites.forEach(s => {
+    if(!s.el) return;
+    s.el.style.left = `calc(50% + ${s.px}px)`;
+    s.el.style.top = `calc(50% - ${s.py}px)`;
+    s.el.style.transform = `translate(-50%,-50%) rotate(${s.dir-90}deg) scale(${s.size/100})`;
+    applyEffectsToEl(s.el, s.effects);
+    s.el.style.display = s.visible ? 'block' : 'none';
+    // clones
+    s.clones.forEach(c => {
+      if(!c.el) return;
+      c.el.style.left = `calc(50% + ${c.px}px)`;
+      c.el.style.top = `calc(50% - ${c.py}px)`;
+      c.el.style.transform = `translate(-50%,-50%) rotate(${c.dir-90}deg) scale(${c.size/100})`;
+      applyEffectsToEl(c.el, c.effects);
+      c.el.style.display = c.visible ? 'block' : 'none';
+    });
+  });
+}
+
+function applyEffectsToEl(el, effects){
+  const parts = [];
+  if(effects.color) parts.push(`hue-rotate(${effects.color}deg)`);
+  if(effects.fisheye) parts.push(`scale(${1+effects.fisheye/100})`);
+  if(effects.whirl) parts.push(`rotate(${effects.whirl}deg)`);
+  if(effects.pixelate) parts.push(`blur(${effects.pixelate/10}px)`);
+  if(effects.brightness) parts.push(`brightness(${100+effects.brightness}%)`);
+  if(effects.ghost) parts.push(`opacity(${Math.max(0,100-effects.ghost)}%)`);
+  el.style.filter = parts.length ? parts.join(' ') : '';
+}
+
+function updateCloneBadge(){
+  let total = 0;
+  sprites.forEach(s => { total += s.clones.filter(c => c.el).length; });
+  let badge = document.getElementById('cloneBadge');
+  if(!badge){
+    badge = document.createElement('div');
+    badge.id = 'cloneBadge';
+    badge.className = 'clone-counter';
+    document.getElementById('stage').appendChild(badge);
+  }
+  badge.textContent = '🎭 ' + total + ' clone' + (total !== 1 ? 's' : '');
+  badge.style.display = total ? 'block' : 'none';
+}
+
+function moveCurrentSprite(dx, dy){
+  const s = getCurrentSprite();
+  if(!s) return;
+  s.px += dx; s.py += dy;
+  applySpriteTransforms();
+}
+
+/* =====================================================================
+   BLOCK PALETTE (unchanged from previous version, minus a couple tweaks)
+   ===================================================================== */
+const palettes = {
+motion:[
+  ['move','move',`move <input class="short" type="number" value="10"> steps`],
+  ['turnRight','turn',`turn ↻ <input class="short" type="number" value="15"> degrees`],
+  ['turnLeft','turn',`turn ↺ <input class="short" type="number" value="15"> degrees`],
+  ['gotoXY','goto',`go to x: <input class="short" type="number" value="0"> y: <input class="short" type="number" value="0">`],
+  ['glideXY','glide',`glide <input class="short" type="number" value="1"> secs to x: <input class="short" type="number" value="0"> y: <input class="short" type="number" value="0">`],
+  ['pointDir','point',`point in direction <input class="short" type="number" value="90">`],
+  ['changeX','changex',`change x by <input class="short" type="number" value="10">`],
+  ['setX','setx',`set x to <input class="short" type="number" value="0">`],
+  ['changeY','changey',`change y by <input class="short" type="number" value="10">`],
+  ['setY','sety',`set y to <input class="short" type="number" value="0">`],
+  ['ifEdge','edge',`if on edge, bounce`],
+  ['xpos','reporter',`x position`],
+  ['ypos','reporter',`y position`],
+  ['direction','reporter',`direction`]
+],
+looks:[
+  ['say','say',`say <input class="wide" value="Hello!">`],
+  ['sayFor','sayfor',`say <input class="wide" value="Hello!"> for <input class="short" type="number" value="2"> seconds`],
+  ['think','think',`think <input class="wide" value="Hmm...">`],
+  ['thinkFor','thinkfor',`think <input class="wide" value="Hmm..."> for <input class="short" type="number" value="2"> seconds`],
+  ['switchCostume','costume',`switch costume to <input class="wide" value="costume1">`],
+  ['nextCostume','nextcostume',`next costume`],
+  ['changeSize','size',`change size by <input class="short" type="number" value="10">`],
+  ['setSize','setsize',`set size to <input class="short" type="number" value="100"> %`],
+  ['show','show',`show`],['hide','hide',`hide`],
+  ['backdrop','backdrop',`switch backdrop to <input class="wide" value="backdrop1">`],
+  ['changeEffect','effect',`change <select><option>color</option><option>fisheye</option><option>whirl</option><option>pixelate</option><option>mosaic</option><option>brightness</option><option>ghost</option></select> effect by <input class="short" type="number" value="25">`],
+  ['setEffect','seteffect',`set <select><option>color</option><option>fisheye</option><option>whirl</option><option>pixelate</option><option>mosaic</option><option>brightness</option><option>ghost</option></select> effect to <input class="short" type="number" value="0">`],
+  ['clearEffects','clearfx',`clear graphic effects`]
+],
+sound:[
+  ['playSound','sound',`start sound <input class="wide" value="meow">`],
+  ['playSoundWait','soundwait',`play sound <input class="wide" value="meow"> until done`],
+  ['stopAllSounds','stopsounds',`stop all sounds`],
+  ['changeVolume','volume',`change volume by <input class="short" type="number" value="-10">`],
+  ['setVolume','setvolume',`set volume to <input class="short" type="number" value="100"> %`],
+  ['volume','reporter',`volume`]
+],
+events:[
+  ['whenFlag','hat',`when 🟢 clicked`],
+  ['whenKey','hat',`when <select class="key-select"><option value="any">any</option><option value="space">space</option><option value="up arrow">up arrow</option><option value="down arrow">down arrow</option><option value="left arrow">left arrow</option><option value="right arrow">right arrow</option><option value="a">a</option><option value="b">b</option><option value="c">c</option><option value="d">d</option><option value="w">w</option><option value="s">s</option><option value="enter">enter</option></select> key pressed`],
+  ['whenSprite','hat',`when this sprite clicked`],
+  ['whenBackdrop','hat',`when backdrop switches to <input class="wide" value="backdrop1">`],
+  ['whenLoudness','hat',`when loudness > <input class="short" type="number" value="10">`],
+  ['broadcast','broadcast',`broadcast <input class="wide" value="message1">`],
+  ['broadcastWait','broadcastwait',`broadcast <input class="wide" value="message1"> and wait`],
+  ['whenBroadcast','hat',`when I receive <input class="wide" value="message1">`]
+],
+control:[
+  ['wait','wait',`wait <input class="short" type="number" value="1"> seconds`],
+  ['repeat','repeat',`repeat <input class="short" type="number" value="10">`],
+  ['forever','loop',`forever`],
+  ['if','if',`if <input class="wide" value="condition"> then`],
+  ['ifelse','ifelse',`if <input class="wide" value="condition"> then else`],
+  ['waitUntil','waituntil',`wait until <input class="wide" value="condition">`],
+  ['repeatUntil','repeatuntil',`repeat until <input class="wide" value="condition">`],
+  ['stop','stop',`stop <select><option>all</option><option>this script</option><option>other scripts in sprite</option></select>`],
+  ['createClone','clone',`create clone of <select><option>myself</option></select>`],
+  ['deleteClone','deleteclone',`delete this clone`],
+  ['startClone','hat',`when I start as a clone`]
+],
+sensing:[
+  ['touching','touching',`touching <input class="wide" value="mouse-pointer"> ?`],
+  ['touchingColor','touchcolor',`touching color <input type="color" value="#ff0000"> ?`],
+  ['ask','ask',`ask <input class="wide" value="What's your name?"> and wait`],
+  ['answer','reporter',`answer`],
+  ['keyPressed','key',`key <select class="key-select"><option value="any">any</option><option value="space">space</option><option value="up arrow">up arrow</option><option value="down arrow">down arrow</option><option value="left arrow">left arrow</option><option value="right arrow">right arrow</option><option value="a">a</option><option value="b">b</option><option value="w">w</option><option value="s">s</option></select> pressed?`],
+  ['mouseDown','mouse',`mouse down?`],
+  ['mouseX','reporter',`mouse x`],['mouseY','reporter',`mouse y`],
+  ['distance','reporter',`distance to <input class="wide" value="mouse-pointer">`],
+  ['timer','reporter',`timer`],
+  ['resetTimer','resettimer',`reset timer`],
+  ['current','reporter',`current <select><option>year</option><option>month</option><option>date</option><option>day of week</option><option>hour</option><option>minute</option><option>second</option></select>`],
+  ['daysSince','reporter',`days since 2000`],
+  ['username','reporter',`username`],
+  ['loudness','reporter',`loudness`]
+],
+operators:[
+  ['add','op',`(<input class="short" type="number" value="1"> + <input class="short" type="number" value="1">)`],
+  ['sub','op',`(<input class="short" type="number" value="1"> − <input class="short" type="number" value="1">)`],
+  ['mul','op',`(<input class="short" type="number" value="2"> × <input class="short" type="number" value="2">)`],
+  ['div','op',`(<input class="short" type="number" value="4"> ÷ <input class="short" type="number" value="2">)`],
+  ['random','random',`pick random <input class="short" type="number" value="1"> to <input class="short" type="number" value="10">`],
+  ['lt','op',`<input class="short" type="number" value="1"> < <input class="short" type="number" value="2">`],
+  ['eq','op',`<input class="short" value="hello"> = <input class="short" value="hello">`],
+  ['gt','op',`<input class="short" type="number" value="2"> > <input class="short" type="number" value="1">`],
+  ['and','op',`<input class="wide" value="true"> and <input class="wide" value="true">`],
+  ['or','op',`<input class="wide" value="true"> or <input class="wide" value="false">`],
+  ['not','op',`not <input class="wide" value="true">`],
+  ['join','op',`join <input class="wide" value="hello "> <input class="wide" value="world">`],
+  ['letter','op',`letter <input class="short" value="1"> of <input class="wide" value="world">`],
+  ['length','op',`length of <input class="wide" value="hello">`],
+  ['contains','op',`<input class="wide" value="hello"> contains <input class="wide" value="e"> ?`],
+  ['mod','op',`<input class="short" type="number" value="10"> mod <input class="short" type="number" value="3">`],
+  ['round','op',`round <input class="short" type="number" value="3.14">`],
+  ['math','op',`<select><option>abs</option><option>floor</option><option>ceiling</option><option>sqrt</option><option>sin</option><option>cos</option><option>tan</option><option>asin</option><option>acos</option><option>atan</option><option>ln</option><option>log</option><option>e ^</option><option>10 ^</option></select> of <input class="short" type="number" value="10">`]
+],
+variables:[
+  ['setVar','var',`set <input class="wide" value="score"> to <input class="short" type="number" value="0">`],
+  ['changeVar','var',`change <input class="wide" value="score"> by <input class="short" type="number" value="1">`],
+  ['showVar','var',`show variable <input class="wide" value="score">`],
+  ['hideVar','var',`hide variable <input class="wide" value="score">`],
+  ['varReporter','reporter',`<input class="wide" value="score">`],
+  ['listAdd','var',`add <input class="wide" value="thing"> to <input class="wide" value="list">`],
+  ['listDelete','var',`delete <input class="short" type="number" value="1"> of <input class="wide" value="list">`],
+  ['listInsert','var',`insert <input class="wide" value="thing"> at <input class="short" type="number" value="1"> of <input class="wide" value="list">`],
+  ['listReplace','var',`replace item <input class="short" type="number" value="1"> of <input class="wide" value="list"> with <input class="wide" value="thing">`],
+  ['listShow','var',`show list <input class="wide" value="list">`],
+  ['listHide','var',`hide list <input class="wide" value="list">`],
+  ['listLength','reporter',`length of <input class="wide" value="list">`],
+  ['listContains','reporter',`<input class="wide" value="list"> contains <input class="wide" value="thing">`],
+  ['listItem','reporter',`item <input class="short" type="number" value="1"> of <input class="wide" value="list">`]
+],
+myblocks:[
+  ['define','define',`define <input class="wide" value="my block">`],
+  ['call','call',`<input class="wide" value="my block">`],
+  ['addInput','my',`add input <input class="wide" value="number">`],
+  ['addLabel','my',`add label <input class="wide" value="do something">`]
+]
+};
+
+const colors = {motion:'#4c97ff',looks:'#9966ff',sound:'#cf63cf',events:'#ffbf00',control:'#ffab19',sensing:'#5cb1d6',operators:'#59c059',variables:'#ff8c1a',myblocks:'#ff6680'};
+const blocks = document.getElementById('blocks');
+const dropzone = document.getElementById('dropzone');
+let activeCategory = 'motion';
+let stopped = false;
+let isRunning = false;
+
+/* state used by evaluation (points to the currently-executing sprite) */
+let px = 0, py = 0, dir = 90;
+let spriteSize = 100;
+let spriteEffects = {color:0,fisheye:0,whirl:0,pixelate:0,mosaic:0,brightness:0,ghost:0};
+let spriteVisible = true;
+let spriteCostume = 'costume1';
+let costumeIndex = 0;
+let currentCostumes = ['costume1','costume2'];
+
+/* Keep a pointer to the sprite currently being executed (for reporter blocks) */
+let execSprite = null;
+
+/* Keyboard state */
+const pressedKeys = new Set();
+const keyListeners = [];
+
+/* Loudness */
+let micStream = null, analyser = null, micDataArray = null, micVolume = 0, micActive = false;
+
+/* Answer / timer */
+let answerValue = '';
+let timerStart = performance.now();
+
+/* =====================================================================
+   RENDER PALETTE
+   ===================================================================== */
+function renderPalette(cat){
+  activeCategory = cat;
+  blocks.innerHTML = '';
+  (palettes[cat] || []).forEach(([id,type,content]) => {
+    const el = makeBlock(id,type,content,cat);
+    blocks.appendChild(el);
+  });
+}
+
+function makeBlock(id,type,content,cat){
+  const b = document.createElement('div');
+  b.className = 'block';
+  b.style.background = colors[cat];
+  if(cat === 'events') b.style.color = '#222';
+  b.dataset.id = id; b.dataset.cat = cat; b.dataset.type = type;
+  b.draggable = true;
+  b.innerHTML = content;
+  b.addEventListener('dragstart', e => e.dataTransfer.setData('blockHTML', b.outerHTML));
+  return b;
+}
+
+document.querySelectorAll('.cat').forEach(c => c.onclick = () => renderPalette(c.dataset.cat));
+renderPalette('motion');
+
+dropzone.addEventListener('dragover', e => e.preventDefault());
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  const raw = e.dataTransfer.getData('blockHTML');
+  if(!raw) return;
+  const temp = document.createElement('div');
+  temp.innerHTML = raw;
+  const block = temp.firstElementChild;
+  if(!block) return;
+  block.draggable = false;
+  block.classList.add('drop-block');
+  const x = document.createElement('span');
+  x.className = 'delete-x'; x.textContent = '×';
+  x.title = 'Delete block';
+  x.onclick = () => block.remove();
+  block.appendChild(x);
+  const hint = dropzone.querySelector('.hint');
+  if(hint) hint.remove();
+  dropzone.appendChild(block);
+  block.addEventListener('dblclick', ev => {
+    if(ev.target.tagName !== 'INPUT' && ev.target.tagName !== 'SELECT') block.remove();
+  });
+});
+
+function setTab(btn,tab){
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['codeTab','costumesTab','soundsTab'].forEach(id => document.getElementById(id).classList.toggle('hidden', id !== tab+'Tab'));
+}
+
+/* =====================================================================
+   SAY / THINK BUBBLES (one pair per sprite)
+   ===================================================================== */
+function ensureBubblesFor(sprite){
+  if(!sprite.bubbles){
+    const stage = document.getElementById('stage');
+    const say = document.createElement('div');
+    say.className = 'say-bubble';
+    say.style.display = 'none';
+    const think = document.createElement('div');
+    think.className = 'think-bubble';
+    think.id = 'thinkBubble_' + sprite.id;
+    think.style.cssText = 'position:absolute;display:none;max-width:220px;padding:10px 14px;background:#f5f5f5;border:2px solid #777;border-radius:18px;font-size:18px;line-height:1.2;z-index:4;box-shadow:0 2px 5px rgba(0,0,0,.15);transform:translate(-50%,-100%);pointer-events:none';
+    stage.appendChild(say);
+    stage.appendChild(think);
+    sprite.bubbles = { say, think };
+  }
+  return sprite.bubbles;
+}
+
+function showSay(sprite, text){
+  const b = ensureBubblesFor(sprite);
+  clearTimeout(sprite._sayTimer);
+  b.think.style.display = 'none';
+  b.say.textContent = text;
+  b.say.style.display = 'block';
+  b.say.style.left = `calc(50% + ${sprite.px}px)`;
+  b.say.style.top = `calc(50% - ${sprite.py}px)`;
+}
+function hideSay(sprite){
+  const b = ensureBubblesFor(sprite);
+  clearTimeout(sprite._sayTimer);
+  b.say.style.display = 'none';
+}
+function showThink(sprite, text){
+  const b = ensureBubblesFor(sprite);
+  clearTimeout(sprite._thinkTimer);
+  b.say.style.display = 'none';
+  b.think.textContent = text;
+  b.think.style.display = 'block';
+  b.think.style.left = `calc(50% + ${sprite.px}px)`;
+  b.think.style.top = `calc(50% - ${sprite.py}px)`;
+}
+function hideThink(sprite){
+  const b = ensureBubblesFor(sprite);
+  clearTimeout(sprite._thinkTimer);
+  b.think.style.display = 'none';
+}
+
+/* =====================================================================
+   MIC / LOUDNESS
+   ===================================================================== */
+async function startMic(){
+  if(micActive) return true;
+  try{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+    micStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    const source = ctx.createMediaStreamSource(micStream);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    micDataArray = new Uint8Array(analyser.frequencyBinCount);
+    micActive = true;
+    (function loop(){
+      if(!micActive) return;
+      analyser.getByteFrequencyData(micDataArray);
+      let sum = 0;
+      for(let i=0;i<micDataArray.length;i++) sum += micDataArray[i];
+      micVolume = sum / micDataArray.length;
+      requestAnimationFrame(loop);
+    })();
+    return true;
+  }catch(e){
+    console.warn('mic unavailable', e);
+    return false;
+  }
+}
+function getLoudness(){ return micVolume; }
+
+/* =====================================================================
+   KEYBOARD
+   ===================================================================== */
+function normalizeKey(k){
+  k = k.toLowerCase();
+  if(k === ' ') return 'space';
+  if(k === 'arrowup') return 'up arrow';
+  if(k === 'arrowdown') return 'down arrow';
+  if(k === 'arrowleft') return 'left arrow';
+  if(k === 'arrowright') return 'right arrow';
+  if(k === 'enter') return 'enter';
+  return k;
+}
+document.addEventListener('keydown', e => {
+  const key = normalizeKey(e.key);
+  pressedKeys.add(key);
+  keyListeners.slice().forEach(l => {
+    if(l.key === 'any' || l.key === key){
+      l.resolve(key);
+      const i = keyListeners.indexOf(l);
+      if(i >= 0) keyListeners.splice(i,1);
+    }
+  });
+});
+document.addEventListener('keyup', e => {
+  pressedKeys.delete(normalizeKey(e.key));
+});
+function waitForKey(key){
+  return new Promise(resolve => {
+    if(key !== 'any' && pressedKeys.has(key)){ resolve(key); return; }
+    if(key === 'any' && pressedKeys.size > 0){ resolve([...pressedKeys][0]); return; }
+    keyListeners.push({key, resolve});
+  });
+}
+
+/* =====================================================================
+   CLONES
+   ===================================================================== */
+function makeCloneFor(sprite){
+  const el = document.createElement('div');
+  el.className = 'sprite clone-sprite';
+  el.style.position = 'absolute';
+  el.style.fontSize = '58px';
+  el.style.userSelect = 'none';
+  el.style.cursor = 'pointer';
+  el.textContent = sprite.emoji;
+  document.getElementById('stage').appendChild(el);
+  const clone = {
+    id: Math.random().toString(36).slice(2),
+    parent: sprite,
+    el,
+    px: sprite.px, py: sprite.py, dir: sprite.dir,
+    size: sprite.size,
+    effects: {...sprite.effects},
+    visible: sprite.visible,
+    deleted: false
+  };
+  sprite.clones.push(clone);
+  applySpriteTransforms();
+  updateCloneBadge();
+
+  // run "when I start as a clone" scripts for this sprite
+  setTimeout(() => { runCloneScripts(clone); }, 0);
+  return clone;
+}
+
+function deleteThisClone(cloneCtx){
+  if(!cloneCtx) return;
+  const sprite = cloneCtx.parent;
+  if(!sprite) return;
+  const i = sprite.clones.indexOf(cloneCtx);
+  if(i >= 0) sprite.clones.splice(i,1);
+  if(cloneCtx.el && cloneCtx.el.parentNode) cloneCtx.el.parentNode.removeChild(cloneCtx.el);
+  cloneCtx.deleted = true;
+  stopped = true; // stop this clone's script
+  updateCloneBadge();
+}
+
+async function runCloneScripts(clone){
+  const sprite = clone.parent;
+  const allBlocks = blocksForSprite(sprite);
+  for(let i=0;i<allBlocks.length;i++){
+    if(clone.deleted || stopped) break;
+    if(allBlocks[i].dataset.id === 'startClone'){
+      // execute blocks after this one until next hat
+      for(let j=i+1;j<allBlocks.length;j++){
+        if(clone.deleted || stopped) break;
+        const nid = allBlocks[j].dataset.id;
+        if(nid.endsWith('hat') || nid === 'define') break;
+        await executeBlock(allBlocks[j], clone);
+      }
+    }
+  }
+}
+
+/* Get the block list for a given sprite. If it's the currently-edited one,
+   read from the dropzone (so edits are picked up live). Otherwise parse
+   the stored scriptsHTML. */
+function blocksForSprite(sprite){
+  if(sprite.id === currentSpriteId){
+    return [...dropzone.querySelectorAll('.drop-block')];
+  }
+  const temp = document.createElement('div');
+  (sprite.scriptsHTML || []).forEach(html => {
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    [...d.children].forEach(c => temp.appendChild(c));
+  });
+  return [...temp.querySelectorAll('.drop-block')];
+}
+
+/* =====================================================================
+   EXPRESSION / CONDITION EVALUATOR
+   ===================================================================== */
+function evalExpression(blockEl, sprite){
+  if(!blockEl) return '';
+  const id = blockEl.dataset.id;
+  if(!id) return '';
+  const inputs = [...blockEl.querySelectorAll('input')];
+  const selects = [...blockEl.querySelectorAll('select')];
+  const n = i => Number(inputs[i] ? inputs[i].value : 0) || 0;
+  const v = i => inputs[i] ? inputs[i].value : '';
+  const s = i => selects[i] ? selects[i].value : '';
+
+  /* if this block has a nested operator child, evaluate that first */
+  const nested = blockEl.querySelector('.drop-block > .block, .block .drop-block');
+  // (simple version — we don't support nesting yet, so skip)
+
+  switch(id){
+    case 'add': return n(0) + n(1);
+    case 'sub': return n(0) - n(1);
+    case 'mul': return n(0) * n(1);
+    case 'div': return n(1) !== 0 ? n(0)/n(1) : 0;
+    case 'random': return Math.floor(Math.random()*(n(1)-n(0)+1)) + n(0);
+    case 'lt': return n(0) < n(1);
+    case 'eq': return v(0) === v(1);
+    case 'gt': return n(0) > n(1);
+    case 'and': return (v(0) === 'true') && (v(1) === 'true');
+    case 'or': return (v(0) === 'true') || (v(1) === 'true');
+    case 'not': return v(0) !== 'true';
+    case 'join': return v(0) + v(1);
+    case 'letter': { const i = parseInt(v(0)) || 1; return String(v(1)).charAt(i-1); }
+    case 'length': return String(v(0)).length;
+    case 'contains': return String(v(0)).includes(String(v(1)));
+    case 'mod': return n(0) % n(1);
+    case 'round': return Math.round(n(0));
+    case 'math': {
+      const op = s(0); const x = n(0);
+      switch(op){
+        case 'abs': return Math.abs(x);
+        case 'floor': return Math.floor(x);
+        case 'ceiling': return Math.ceil(x);
+        case 'sqrt': return Math.sqrt(x);
+        case 'sin': return Math.sin(x);
+        case 'cos': return Math.cos(x);
+        case 'tan': return Math.tan(x);
+        case 'asin': return Math.asin(x);
+        case 'acos': return Math.acos(x);
+        case 'atan': return Math.atan(x);
+        case 'ln': return Math.log(x);
+        case 'log': return Math.log10(x);
+        case 'e ^': return Math.exp(x);
+        case '10 ^': return Math.pow(10,x);
+      }
+      return 0;
+    }
+    case 'varReporter': return getVar(v(0));
+    case 'xpos': return sprite ? sprite.px : 0;
+    case 'ypos': return sprite ? sprite.py : 0;
+    case 'direction': return sprite ? sprite.dir : 90;
+    case 'mouseX': return 0;
+    case 'mouseY': return 0;
+    case 'timer': return (performance.now() - timerStart)/1000;
+    case 'answer': return answerValue;
+    case 'loudness': return getLoudness();
+    case 'volume': return currentVolume*100;
+    case 'listLength': { const name = v(0).trim(); return (lists[name]||[]).length; }
+    case 'listItem': { const name = v(1).trim(); const arr = lists[name]||[]; return arr[parseInt(v(0))-1] || ''; }
+    case 'listContains': { const name = v(0).trim(); const arr = lists[name]||[]; return arr.includes(v(1)); }
+    default: return '';
+  }
+}
+
+function evalCondition(blockEl, sprite){
+  if(!blockEl) return false;
+  const val = evalExpression(blockEl, sprite);
+  if(typeof val === 'boolean') return val;
+  const str = String(val).trim().toLowerCase();
+  if(str === 'true' || str === '1') return true;
+  if(str === 'false' || str === '' || str === '0') return false;
+  const num = Number(str);
+  if(!isNaN(num)) return num !== 0;
+  return !!val;
+}
+
+/* =====================================================================
+   EXECUTE BLOCK
+   ===================================================================== */
+async function executeBlock(b, cloneCtx){
+  const sprite = cloneCtx ? cloneCtx.parent : execSprite;
+  if(!sprite) return;
+  const id = b.dataset.id;
+  const inputs = [...b.querySelectorAll('input')];
+  const selects = [...b.querySelectorAll('select')];
+  const nums = inputs.map(i => Number(i.value));
+  const val = i => inputs[i] ? inputs[i].value : '';
+  const num = i => Number(inputs[i] ? inputs[i].value : 0) || 0;
+  const sel = i => selects[i] ? selects[i].value : '';
+
+  if(id === 'move'){
+    const n = num(0) || 0;
+    const target = cloneCtx || sprite;
+    target.px += Math.sin(target.dir*Math.PI/180)*n;
+    target.py += Math.cos(target.dir*Math.PI/180)*n;
+    applySpriteTransforms();
+  }
+  else if(id === 'turnRight'){
+    const n = num(0) || 15;
+    (cloneCtx || sprite).dir += n;
+    applySpriteTransforms();
+  }
+  else if(id === 'turnLeft'){
+    const n = num(0) || 15;
+    (cloneCtx || sprite).dir -= n;
+    applySpriteTransforms();
+  }
+  else if(id === 'gotoXY'){
+    const target = cloneCtx || sprite;
+    target.px = num(0); target.py = num(1);
+    applySpriteTransforms();
+  }
+  else if(id === 'changeX'){
+    (cloneCtx || sprite).px += num(0) || 0;
+    applySpriteTransforms();
+  }
+  else if(id === 'setX'){
+    (cloneCtx || sprite).px = num(0);
+    applySpriteTransforms();
+  }
+  else if(id === 'changeY'){
+    (cloneCtx || sprite).py += num(0) || 0;
+    applySpriteTransforms();
+  }
+  else if(id === 'setY'){
+    (cloneCtx || sprite).py = num(0);
+    applySpriteTransforms();
+  }
+  else if(id === 'glideXY'){
+    const secs = num(0) || 1;
+    const tx = num(1) || 0, ty = num(2) || 0;
+    const target = cloneCtx || sprite;
+    const sx = target.px, sy = target.py;
+    const start = performance.now();
+    while(performance.now() - start < secs*1000 && !stopped){
+      const p = Math.min(1, (performance.now() - start)/(secs*1000));
+      target.px = sx + (tx-sx)*p;
+      target.py = sy + (ty-sy)*p;
+      applySpriteTransforms();
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    target.px = tx; target.py = ty;
+    applySpriteTransforms();
+  }
+  else if(id === 'pointDir'){
+    (cloneCtx || sprite).dir = num(0);
+    applySpriteTransforms();
+  }
+  else if(id === 'ifEdge'){
+    const t = cloneCtx || sprite;
+    if(t.px > 180){ t.px = 180; t.dir = 180 - t.dir; }
+    if(t.px < -180){ t.px = -180; t.dir = 180 - t.dir; }
+    if(t.py > 180){ t.py = 180; t.dir = -t.dir; }
+    if(t.py < -180){ t.py = -180; t.dir = -t.dir; }
+    applySpriteTransforms();
+  }
+  else if(id === 'say'){
+    showSay(sprite, val(0));
+  }
+  else if(id === 'sayFor'){
+    const text = val(0);
+    const seconds = Number(inputs[1]?.value) || 2;
+    showSay(sprite, text);
+    await new Promise(r => setTimeout(r, seconds*1000));
+    hideSay(sprite);
+  }
+  else if(id === 'think'){
+    showThink(sprite, val(0));
+  }
+  else if(id === 'thinkFor'){
+    const seconds = Number(inputs[1]?.value) || 2;
+    showThink(sprite, val(0));
+    await new Promise(r => setTimeout(r, seconds*1000));
+    hideThink(sprite);
+  }
+  else if(id === 'wait'){
+    await new Promise(r => setTimeout(r, num(0)*1000 || 1000));
+  }
+  else if(id === 'repeat'){
+    const count = Math.max(0, Math.floor(num(0)));
+    const parent = b.parentNode;
+    const all = [...parent.querySelectorAll('.drop-block')];
+    const idx = all.indexOf(b);
+    const body = [];
+    for(let i=idx+1;i<all.length;i++){
+      const bid = all[i].dataset.id;
+      if(bid === 'forever' || bid === 'repeat' || bid === 'if' || bid === 'ifelse') break;
+      body.push(all[i]);
+    }
+    for(let r=0;r<count;r++){
+      if(stopped) break;
+      for(const blk of body){
+        if(stopped) break;
+        await executeBlock(blk, cloneCtx);
+      }
+    }
+  }
+  else if(id === 'forever'){
+    const parent = b.parentNode;
+    const all = [...parent.querySelectorAll('.drop-block')];
+    const idx = all.indexOf(b);
+    const body = [];
+    for(let i=idx+1;i<all.length;i++){
+      const bid = all[i].dataset.id;
+      if(bid === 'forever' || bid === 'repeat' || bid === 'if' || bid === 'ifelse') break;
+      body.push(all[i]);
+    }
+    while(!stopped){
+      for(const blk of body){
+        if(stopped) break;
+        await executeBlock(blk, cloneCtx);
+      }
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  else if(id === 'if' || id === 'ifelse'){
+    const cond = evalCondition(b, sprite);
+    const parent = b.parentNode;
+    const all = [...parent.querySelectorAll('.drop-block')];
+    const idx = all.indexOf(b);
+    const bodyTrue = [];
+    for(let i=idx+1;i<all.length;i++){
+      const bid = all[i].dataset.id;
+      if(bid === 'if' || bid === 'ifelse' || bid === 'forever' || bid === 'repeat') break;
+      bodyTrue.push(all[i]);
+    }
+    if(cond){
+      for(const blk of bodyTrue){ if(stopped) break; await executeBlock(blk, cloneCtx); }
+    }
+  }
+  else if(id === 'waitUntil'){
+    while(!stopped){
+      if(evalCondition(b, sprite)) break;
+      await new Promise(r => setTimeout(r, 50));
+    }
+  }
+  else if(id === 'repeatUntil'){
+    while(!stopped){
+      if(evalCondition(b, sprite)) break;
+      const parent = b.parentNode;
+      const all = [...parent.querySelectorAll('.drop-block')];
+      const idx = all.indexOf(b);
+      for(let i=idx+1;i<all.length;i++){
+        const bid = all[i].dataset.id;
+        if(bid === 'forever' || bid === 'repeat' || bid === 'if' || bid === 'ifelse') break;
+        if(stopped) break;
+        await executeBlock(all[i], cloneCtx);
+      }
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  else if(id === 'stop'){
+    const which = sel(0);
+    if(which === 'all'){ stopProject(); }
+    else if(which === 'this script'){ stopped = true; }
+    else if(which === 'other scripts in sprite'){ stopped = true; }
+  }
+  else if(id === 'show'){
+    if(cloneCtx){ cloneCtx.visible = true; }
+    else { sprite.visible = true; }
+    applySpriteTransforms();
+  }
+  else if(id === 'hide'){
+    if(cloneCtx){ cloneCtx.visible = false; }
+    else { sprite.visible = false; }
+    applySpriteTransforms();
+  }
+  else if(id === 'nextCostume'){
+    sprite.costumeIndex = (sprite.costumeIndex + 1) % sprite.costumes.length;
+    sprite.costume = sprite.costumes[sprite.costumeIndex];
+    const costumeEmojis = ['🐱','😺','😸','😻','🐈','🐈‍⬛'];
+    const em = sprite.costume;
+    const idx2 = costumeEmojis.indexOf(em);
+    if(idx2 >= 0){
+      sprite.el.textContent = costumeEmojis[(idx2+1) % costumeEmojis.length];
+    }
+  }
+  else if(id === 'switchCostume'){
+    const costumeName = val(0).trim();
+    if(sprite.costumes.includes(costumeName)){
+      sprite.costume = costumeName;
+      sprite.costumeIndex = sprite.costumes.indexOf(costumeName);
+    }
+  }
+  else if(id === 'changeSize'){
+    const n = num(0) || 10;
+    if(cloneCtx){ cloneCtx.size = Math.max(1, cloneCtx.size + n); }
+    else { sprite.size = Math.max(1, sprite.size + n); }
+    applySpriteTransforms();
+  }
+  else if(id === 'setSize'){
+    const n = num(0) || 100;
+    if(cloneCtx){ cloneCtx.size = Math.max(1, n); }
+    else { sprite.size = Math.max(1, n); }
+    applySpriteTransforms();
+  }
+  else if(id === 'changeEffect'){
+    const effect = sel(0) || 'color';
+    const n = num(0) || 25;
+    const fx = cloneCtx ? cloneCtx.effects : sprite.effects;
+    fx[effect] = (fx[effect] || 0) + n;
+    applySpriteTransforms();
+  }
+  else if(id === 'setEffect'){
+    const effect = sel(0) || 'color';
+    const n = num(0) || 0;
+    const fx = cloneCtx ? cloneCtx.effects : sprite.effects;
+    fx[effect] = n;
+    applySpriteTransforms();
+  }
+  else if(id === 'clearEffects'){
+    const fx = cloneCtx ? cloneCtx.effects : sprite.effects;
+    Object.keys(fx).forEach(k => fx[k] = 0);
+    applySpriteTransforms();
+  }
+  else if(id === 'playSound'){
+    playSoundByName(val(0), false);
+  }
+  else if(id === 'playSoundWait'){
+    await playSoundByName(val(0), true);
+  }
+  else if(id === 'stopAllSounds'){ stopAllSounds(); }
+  else if(id === 'setVolume'){ setVolume(num(0)); }
+  else if(id === 'changeVolume'){ changeVolume(num(0)); }
+  else if(id === 'setVar'){
+    setVar(val(0), val(1));
+  }
+  else if(id === 'changeVar'){
+    changeVar(val(0), val(1));
+  }
+  else if(id === 'showVar'){ const n = val(0).trim(); if(n) varMonitors[n] = true; }
+  else if(id === 'hideVar'){ const n = val(0).trim(); if(n) varMonitors[n] = false; }
+  else if(id === 'createClone'){
+    const target = sel(0) || 'myself';
+    if(target === 'myself'){ makeCloneFor(sprite); }
+  }
+  else if(id === 'deleteClone'){
+    if(cloneCtx){
+      deleteThisClone(cloneCtx);
+    } else {
+      // main sprite: delete its most recent clone
+      if(sprite.clones.length){
+        const last = sprite.clones[sprite.clones.length-1];
+        deleteThisClone(last);
+      }
+    }
+  }
+  else if(id === 'ask'){
+    answerValue = prompt(val(0)) || '';
+  }
+  else if(id === 'resetTimer'){ timerStart = performance.now(); }
+  else if(id === 'whenFlag' || id === 'whenKey' || id === 'whenSprite' || id === 'whenBackdrop' || id === 'whenLoudness' || id === 'whenBroadcast' || id === 'startClone' || id === 'define' || id === 'call' || id === 'broadcast' || id === 'broadcastWait'){}
+}
+
+/* =====================================================================
+   HAT TRIGGERS
+   ===================================================================== */
+async function fireSpriteClickHats(sprite){
+  const allBlocks = blocksForSprite(sprite);
+  for(let i=0;i<allBlocks.length;i++){
+    if(allBlocks[i].dataset.id === 'whenSprite'){
+      for(let j=i+1;j<allBlocks.length;j++){
+        const nid = allBlocks[j].dataset.id;
+        if(nid.endsWith('hat') || nid === 'define') break;
+        if(stopped) break;
+        await executeBlock(allBlocks[j], null, sprite);
+      }
+    }
+  }
+}
+
+async function fireKeyHats(key){
+  for(const sprite of sprites){
+    const allBlocks = blocksForSprite(sprite);
+    for(let i=0;i<allBlocks.length;i++){
+      if(allBlocks[i].dataset.id === 'whenKey'){
+        const wanted = allBlocks[i].querySelector('select')?.value || 'any';
+        if(wanted === 'any' || wanted === key){
+          for(let j=i+1;j<allBlocks.length;j++){
+            const nid = allBlocks[j].dataset.id;
+            if(nid.endsWith('hat') || nid === 'define') break;
+            if(stopped) break;
+            await executeBlock(allBlocks[j], null, sprite);
+          }
+        }
+      }
+    }
+  }
+}
+
+/* Also fire whenKey hats from the keydown listener */
+document.addEventListener('keydown', e => {
+  if(!isRunning) return;
+  const key = normalizeKey(e.key);
+  fireKeyHats(key);
+});
+
+/* =====================================================================
+   VARIABLES
+   ===================================================================== */
+const vars = {score:0};
+const lists = {};
+const varMonitors = {};
+
+function renderVarList(){
+  const box = document.getElementById('varList');
+  const names = Object.keys(vars);
+  if(!names.length){
+    box.innerHTML = '<div style="padding:6px;color:#999;font-size:12px">No variables yet</div>';
+    return;
+  }
+  box.innerHTML = names.map(n => `<div class="var"><span>${n}</span><span class="var-val" data-name="${n}">${vars[n]}</span></div>`).join('');
+}
+function addVariable(){
+  let name = prompt('New variable name:', 'my variable');
+  if(name === null) return;
+  name = name.trim();
+  if(!name){ alert('Name cannot be empty.'); return; }
+  if(vars.hasOwnProperty(name)){ alert('A variable with that name already exists.'); return; }
+  vars[name] = 0;
+  varMonitors[name] = true;
+  renderVarList();
+}
+function deleteVariablePrompt(){
+  const names = Object.keys(vars);
+  if(!names.length){ alert('No variables to delete.'); return; }
+  let name = prompt('Delete which variable?\n\n' + names.join(', '), names[0]);
+  if(name === null) return;
+  name = name.trim();
+  if(!vars.hasOwnProperty(name)){ alert('Variable not found.'); return; }
+  delete vars[name];
+  delete varMonitors[name];
+  renderVarList();
+}
+function setVar(name, value){
+  name = (name||'').trim();
+  if(!name) return;
+  if(!vars.hasOwnProperty(name)) vars[name] = 0;
+  const num = Number(value);
+  vars[name] = (value !== '' && !isNaN(num)) ? num : value;
+  renderVarList();
+}
+function changeVar(name, delta){
+  name = (name||'').trim();
+  if(!name) return;
+  if(!vars.hasOwnProperty(name)) vars[name] = 0;
+  const cur = Number(vars[name]);
+  const d = Number(delta);
+  vars[name] = (isNaN(cur) ? 0 : cur) + (isNaN(d) ? 0 : d);
+  renderVarList();
+}
+function getVar(name){
+  name = (name||'').trim();
+  return vars.hasOwnProperty(name) ? vars[name] : 0;
+}
+
+/* =====================================================================
+   STOP / RUN
+   ===================================================================== */
+function stopProject(){
+  stopped = true;
+  isRunning = false;
+  // clear all clones
+  sprites.forEach(s => {
+    s.clones.forEach(c => { if(c.el && c.el.parentNode) c.el.parentNode.removeChild(c.el); });
+    s.clones = [];
+    hideSay(s); hideThink(s);
+  });
+  updateCloneBadge();
+  stopAllSounds();
+  keyListeners.length = 0;
+}
+
+async function runProject(){
+  unlockAudio();
+  stopped = false;
+  isRunning = true;
+  startMic().catch(()=>{}); // for loudness hats
+
+  // Save current scripts so all sprites have up-to-date HTML
+  saveScriptsToCurrentSprite();
+
+  // Run "when green flag clicked" for every sprite — in parallel
+  const promises = sprites.map(s => runGreenFlagFor(s));
+  await Promise.all(promises);
+}
+
+async function runGreenFlagFor(sprite){
+  const allBlocks = blocksForSprite(sprite);
+  for(let i=0;i<allBlocks.length;i++){
+    if(stopped) break;
+    if(allBlocks[i].dataset.id === 'whenFlag'){
+      for(let j=i+1;j<allBlocks.length;j++){
+        if(stopped) break;
+        const nid = allBlocks[j].dataset.id;
+        if(nid.endsWith('hat') || nid === 'define') break;
+        execSprite = sprite;
+        await executeBlock(allBlocks[j], null, sprite);
+      }
+    }
+  }
+}
+
+/* =====================================================================
+   SOUNDS (unchanged)
+   ===================================================================== */
+const sounds = {};
+let currentVolume = 1;
+const activeAudios = new Set();
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+let recordStream = null;
+let recordTimerId = null;
+let recordStartTime = 0;
+
+function uniqueSoundName(base){
+  let name = base.replace(/\.[^.]+$/,'').trim() || 'sound';
+  if(!sounds[name]) return name;
+  let i = 2;
+  while(sounds[name + ' ' + i]) i++;
+  return name + ' ' + i;
+}
+function formatDuration(sec){
+  if(!sec || !isFinite(sec)) return '—';
+  const s = Math.round(sec);
+  return (s < 60 ? s + 's' : Math.floor(s/60) + ':' + (s%60).toString().padStart(2,'0'));
+}
+function renderSoundList(){
+  const list = document.getElementById('soundList');
+  const names = Object.keys(sounds);
+  if(!names.length){
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#999;font-size:13px">No sounds yet. Upload or record one!</div>';
+    return;
+  }
+  list.innerHTML = names.map(name => {
+    const s = sounds[name];
+    return `<div class="sound-item" data-name="${name}">
+      <span class="name" title="${name}">🔊 ${name}</span>
+      <span class="dur">${formatDuration(s.duration)}</span>
+      <button class="play-btn" onclick="previewSound('${name.replace(/'/g,"\\'")}')">▶</button>
+      <button class="del-btn" onclick="deleteSound('${name.replace(/'/g,"\\'")}')">×</button>
+    </div>`;
+  }).join('');
+}
+function addSound(name, url, duration, dataUrl){
+  const audio = new Audio(url);
+  audio.preload = 'auto';
+  audio.volume = currentVolume;
+  sounds[name] = {audio, url, duration: duration||0, dataUrl: dataUrl||null};
+  audio.addEventListener('loadedmetadata', () => {
+    if(sounds[name]){ sounds[name].duration = audio.duration; renderSoundList(); }
+  });
+  renderSoundList();
+}
+function handleSoundUpload(e){
+  const files = [...e.target.files];
+  e.target.value = '';
+  files.forEach(file => {
+    if(!file.type.startsWith('audio/') && !/\.(mp3|wav|ogg|m4a|webm)$/i.test(file.name)){
+      alert('Please choose an audio file (mp3, wav, ogg, m4a, webm).');
+      return;
+    }
+    const name = uniqueSoundName(file.name);
+    const url = URL.createObjectURL(file);
+    addSound(name, url);
+    const reader = new FileReader();
+    reader.onload = () => { if(sounds[name]) sounds[name].dataUrl = reader.result; };
+    reader.readAsDataURL(file);
+  });
+}
+function previewSound(name){
+  const s = sounds[name];
+  if(!s) return;
+  const a = s.audio.cloneNode();
+  a.volume = currentVolume;
+  a.play().catch(()=>{});
+  activeAudios.add(a);
+  a.onended = () => activeAudios.delete(a);
+}
+function deleteSound(name){
+  const s = sounds[name];
+  if(!s) return;
+  if(s.url.startsWith('blob:')) URL.revokeObjectURL(s.url);
+  delete sounds[name];
+  renderSoundList();
+}
+function stopRecordingUI(){
+  if(recordTimerId){ clearInterval(recordTimerId); recordTimerId = null; }
+  const btn = document.getElementById('recordBtn');
+  const status = document.getElementById('recStatus');
+  btn.textContent = '🎤 Record';
+  btn.style.background = '#e53935';
+  status.classList.remove('recording');
+}
+async function getMicStream(){
+  const attempts = [{audio:true},{audio:{echoCancellation:true}},{audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}];
+  let lastErr = null;
+  for(const c of attempts){
+    try{ return await navigator.mediaDevices.getUserMedia(c); }
+    catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('Could not access microphone');
+}
+function pickRecorderMime(){
+  if(typeof MediaRecorder === 'undefined') return '';
+  const candidates = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus','audio/ogg'];
+  for(const c of candidates){
+    try{ if(MediaRecorder.isTypeSupported(c)) return c; }catch(e){}
+  }
+  return '';
+}
+function formatRecTime(ms){
+  const s = Math.floor(ms/1000);
+  const m = Math.floor(s/60);
+  const sec = s % 60;
+  return m + ':' + sec.toString().padStart(2,'0');
+}
+async function toggleRecord(){
+  const btn = document.getElementById('recordBtn');
+  const status = document.getElementById('recStatus');
+  if(isRecording){
+    isRecording = false;
+    stopRecordingUI();
+    status.classList.add('active');
+    status.textContent = 'Processing recording…';
+    try{
+      if(mediaRecorder && mediaRecorder.state === 'recording'){
+        try{ mediaRecorder.requestData(); }catch(e){}
+        mediaRecorder.stop();
+      } else if(mediaRecorder && mediaRecorder.state === 'paused'){
+        mediaRecorder.stop();
+      } else {
+        status.textContent = 'Nothing to save.';
+        setTimeout(() => { status.classList.remove('active'); status.textContent = 'Ready to record…'; }, 2000);
+      }
+    }catch(e){ status.textContent = 'Stop error — try again.'; }
+    return;
+  }
+  try{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      alert('This browser cannot use the microphone.\n\nUse Chrome or Edge, or click Upload Sound.');
+      return;
+    }
+    if(typeof MediaRecorder === 'undefined'){
+      alert('Recording is not supported in this browser.\n\nUse Chrome or Edge, or click Upload Sound.');
+      return;
+    }
+    status.classList.add('active');
+    status.textContent = 'Requesting microphone permission…';
+    recordStream = await getMicStream();
+    recordedChunks = [];
+    const mime = pickRecorderMime();
+    try{
+      mediaRecorder = mime ? new MediaRecorder(recordStream,{mimeType:mime}) : new MediaRecorder(recordStream);
+    }catch(e){
+      mediaRecorder = new MediaRecorder(recordStream);
+    }
+    mediaRecorder.ondataavailable = function(e){
+      if(e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+    mediaRecorder.onstop = function(){
+      try{ if(recordStream) recordStream.getTracks().forEach(t => t.stop()); }catch(e){}
+      recordStream = null;
+      if(!recordedChunks.length){
+        status.classList.add('active');
+        status.textContent = 'No audio captured. Allow the mic, speak, then Stop.';
+        setTimeout(() => { status.classList.remove('active'); status.textContent = 'Ready to record…'; }, 4000);
+        return;
+      }
+      const blobType = (mediaRecorder && mediaRecorder.mimeType) || mime || 'audio/webm';
+      const blob = new Blob(recordedChunks, {type: blobType});
+      const url = URL.createObjectURL(blob);
+      const name = uniqueSoundName('recording');
+      addSound(name, url);
+      try{
+        const reader = new FileReader();
+        reader.onload = function(){ if(sounds[name]) sounds[name].dataUrl = reader.result; };
+        reader.readAsDataURL(blob);
+      }catch(e){}
+      status.classList.add('active');
+      status.textContent = '✅ Saved as "' + name + '" — use this name in Sound blocks';
+      setTimeout(() => { status.classList.remove('active'); status.textContent = 'Ready to record…'; }, 5000);
+    };
+    mediaRecorder.onerror = function(e){
+      isRecording = false;
+      stopRecordingUI();
+      try{ if(recordStream) recordStream.getTracks().forEach(t => t.stop()); }catch(err){}
+      status.classList.add('active');
+      status.textContent = 'Recorder error. Try Upload Sound.';
+    };
+    try{ mediaRecorder.start(250); }catch(e){ mediaRecorder.start(); }
+    isRecording = true;
+    recordStartTime = Date.now();
+    btn.textContent = '⏹ Stop';
+    btn.style.background = '#c62828';
+    status.classList.add('active','recording');
+    status.innerHTML = '● Recording <span class="rec-timer">0:00</span> — click Stop when done';
+    if(recordTimerId) clearInterval(recordTimerId);
+    recordTimerId = setInterval(function(){
+      if(!isRecording) return;
+      const elapsed = Date.now() - recordStartTime;
+      const t = status.querySelector('.rec-timer');
+      if(t) t.textContent = formatRecTime(elapsed);
+    }, 200);
+  }catch(err){
+    isRecording = false;
+    stopRecordingUI();
+    try{ if(recordStream) recordStream.getTracks().forEach(t => t.stop()); }catch(e){}
+    recordStream = null;
+    const name = err && err.name;
+    let msg = 'Could not start recording.';
+    if(location.protocol === 'file:'){
+      msg = 'Recording needs microphone permission from your browser.\n\nEasiest option: click Upload Sound and choose an audio file.';
+    } else if(name === 'NotAllowedError' || name === 'PermissionDeniedError'){
+      msg = 'Microphone permission denied.\n\nClick the lock/tune icon in the address bar → Site settings → Microphone → Allow';
+    } else if(name === 'NotFoundError' || name === 'DevicesNotFoundError'){
+      msg = 'No microphone found.';
+    } else if(name === 'NotReadableError' || name === 'TrackStartError'){
+      msg = 'Microphone is busy (another app is using it).';
+    } else if(err && err.message){ msg += '\n\n' + err.message; }
+    alert(msg);
+    status.classList.add('active');
+    status.textContent = 'Mic blocked — use Upload Sound, or open via localhost';
+    setTimeout(() => { status.classList.remove('active'); status.textContent = 'Ready to record…'; }, 5000);
+  }
+}
+
+let audioUnlocked = false;
+function unlockAudio(){
+  if(audioUnlocked) return;
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(AC){
+      if(!window._scratchAC) window._scratchAC = new AC();
+      if(window._scratchAC.state === 'suspended') window._scratchAC.resume();
+    }
+    const a = new Audio();
+    a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';
+    a.volume = 0.01;
+    a.play().then(() => { a.pause(); audioUnlocked = true; }).catch(()=>{});
+    audioUnlocked = true;
+  }catch(e){}
+}
+document.addEventListener('click', unlockAudio, {once:true, capture:true});
+document.addEventListener('keydown', unlockAudio, {once:true, capture:true});
+
+function playSoundByName(name, waitUntilDone){
+  unlockAudio();
+  const key = Object.keys(sounds).find(k => k.toLowerCase() === (name||'').toLowerCase().trim());
+  if(!key){ console.warn('Sound not found:', name); return Promise.resolve(); }
+  const s = sounds[key];
+  const src = s.dataUrl || s.url;
+  const a = src ? new Audio(src) : s.audio.cloneNode(true);
+  a.volume = currentVolume;
+  activeAudios.add(a);
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => { if(done) return; done = true; activeAudios.delete(a); resolve(); };
+    a.onended = finish;
+    a.onerror = finish;
+    const p = a.play();
+    if(p && typeof p.then === 'function'){ p.catch(() => finish()); }
+    if(!waitUntilDone) resolve();
+  });
+}
+function stopAllSounds(){
+  activeAudios.forEach(a => { try{ a.pause(); a.currentTime = 0; }catch(e){} });
+  activeAudios.clear();
+  Object.values(sounds).forEach(s => { try{ s.audio.pause(); s.audio.currentTime = 0; }catch(e){} });
+}
+function setVolume(pct){
+  currentVolume = Math.max(0, Math.min(1, (Number(pct)||0)/100));
+  activeAudios.forEach(a => a.volume = currentVolume);
+  Object.values(sounds).forEach(s => s.audio.volume = currentVolume);
+}
+function changeVolume(delta){ setVolume((currentVolume*100) + (Number(delta)||0)); }
+
+/* =====================================================================
+   PROJECT SAVE / LOAD
+   ===================================================================== */
+const PROJECTS_KEY = 'scratchEditorProjects';
+let memoryProjects = {};
+
+function loadProjectsFromDisk(){
+  const sources = [];
+  try{ sources.push(JSON.parse(localStorage.getItem(PROJECTS_KEY) || '{}')); }catch(e){}
+  try{ sources.push(JSON.parse(sessionStorage.getItem(PROJECTS_KEY) || '{}')); }catch(e){}
+  for(const obj of sources){
+    if(obj && typeof obj === 'object'){
+      for(const [k,v] of Object.entries(obj)) memoryProjects[k] = v;
+    }
+  }
+}
+loadProjectsFromDisk();
+
+function getSavedProjects(){
+  loadProjectsFromDisk();
+  return {...memoryProjects};
+}
+function setSavedProjects(obj){
+  memoryProjects = {...obj};
+  try{ localStorage.setItem(PROJECTS_KEY, JSON.stringify(obj)); }
+  catch(e){
+    try{
+      const light = {};
+      for(const [k,v] of Object.entries(obj)){
+        light[k] = {...v, sounds:{}, sprites:(v.sprites||[]).map(s => ({...s, scriptsHTML:[]}))};
+      }
+      localStorage.setItem(PROJECTS_KEY, JSON.stringify(light));
+    }catch(e2){}
+  }
+  try{ sessionStorage.setItem(PROJECTS_KEY, JSON.stringify(obj)); }catch(e){}
+  return true;
+}
+
+function collectProjectData(includeSounds){
+  saveScriptsToCurrentSprite();
+  const soundData = {};
+  if(includeSounds){
+    for(const [name,s] of Object.entries(sounds)){
+      soundData[name] = {dataUrl: s.dataUrl || null, duration: s.duration || 0};
+    }
+  } else {
+    for(const name of Object.keys(sounds)){
+      soundData[name] = {dataUrl: null, duration: sounds[name].duration || 0};
+    }
+  }
+  return {
+    version: 2,
+    name: document.getElementById('projectName').value || 'Untitled Project',
+    sprites: sprites.map(s => ({
+      id: s.id,
+      name: s.name,
+      emoji: s.emoji,
+      px: s.px, py: s.py, dir: s.dir,
+      size: s.size,
+      effects: {...s.effects},
+      visible: s.visible,
+      costume: s.costume,
+      costumeIndex: s.costumeIndex,
+      costumes: [...s.costumes],
+      scriptsHTML: [...(s.scriptsHTML||[])]
+    })),
+    currentSpriteId: currentSpriteId,
+    vars: {...vars},
+    lists: JSON.parse(JSON.stringify(lists)),
+    sounds: soundData,
+    volume: currentVolume,
+    savedAt: new Date().toISOString()
+  };
+}
+
+function forceDownload(blob, fileName){
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  a.href = url; a.download = fileName; a.style.display = 'none';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+}
+
+function storeInMyProjects(name){
+  name = (name || 'My Project').trim() || 'My Project';
+  try{
+    document.getElementById('projectName').value = name;
+    const data = collectProjectData(false);
+    data.name = name;
+    data.savedAt = new Date().toISOString();
+    memoryProjects[name] = data;
+    setSavedProjects({...memoryProjects});
+    renderProjectsList();
+    return {name, ok:true};
+  }catch(err){
+    return {name, ok:false, error:err};
+  }
+}
+
+function renderProjectsList(){
+  const box = document.getElementById('projectsList');
+  if(!box) return;
+  const all = getSavedProjects();
+  const names = Object.keys(all).sort((a,b) => (all[b].savedAt||'').localeCompare(all[a].savedAt||''));
+  if(!names.length){
+    box.innerHTML = '<div class="pm-empty">No saved projects yet.<br>Click 💾 Save to store one.</div>';
+    return;
+  }
+  box.innerHTML = '';
+  names.forEach(n => {
+    const d = all[n];
+    const when = d.savedAt ? new Date(d.savedAt).toLocaleString() : '';
+    const item = document.createElement('div');
+    item.className = 'pm-item';
+    item.innerHTML = `<div><div style="font-weight:700"></div><div style="font-size:11px;color:#888"></div></div><button class="pm-del" type="button">×</button>`;
+    item.querySelector('div > div').textContent = n;
+    item.querySelector('div > div + div').textContent = when || 'Saved';
+    item.addEventListener('click', e => {
+      if(e.target.closest('.pm-del')) return;
+      loadProjectByName(n);
+    });
+    item.querySelector('.pm-del').addEventListener('click', e => {
+      e.stopPropagation();
+      delete memoryProjects[n];
+      setSavedProjects({...memoryProjects});
+      renderProjectsList();
+    });
+    box.appendChild(item);
+  });
+}
+
+async function loadProjectByName(name){
+  const all = getSavedProjects();
+  if(!all[name]){ alert('Project not found.'); return; }
+  if(!(await confirmLeaveProject())) return;
+  loadProjectData(all[name]);
+}
+
+function loadProjectData(data){
+  if(!data || !data.version){ alert('Invalid project file.'); return; }
+  stopProject();
+  document.getElementById('projectName').value = data.name || 'Untitled Project';
+
+  // Remove all old sprite elements
+  sprites.forEach(s => {
+    if(s.el && s.el.parentNode) s.el.parentNode.removeChild(s.el);
+    if(s.bubbles){
+      if(s.bubbles.say && s.bubbles.say.parentNode) s.bubbles.say.parentNode.removeChild(s.bubbles.say);
+      if(s.bubbles.think && s.bubbles.think.parentNode) s.bubbles.think.parentNode.removeChild(s.bubbles.think);
+    }
+  });
+  sprites = [];
+  spriteIdCounter = 0;
+  currentSpriteId = 0;
+
+  // Load sprites
+  const list = data.sprites || [];
+  if(!list.length){
+    // backwards-compat: old single-sprite format
+    const s = createSprite('🐱','Cat');
+    if(data.sprite){
+      s.px = data.sprite.px || 0;
+      s.py = data.sprite.py || 0;
+      s.dir = data.sprite.dir || 90;
+      s.size = data.sprite.size || 100;
+      if(data.sprite.effects) Object.assign(s.effects, data.sprite.effects);
+      if(typeof data.sprite.visible === 'boolean') s.visible = data.sprite.visible;
+      if(data.sprite.name) s.name = data.sprite.name;
+    }
+    if(data.scripts) s.scriptsHTML = [...data.scripts];
+    currentSpriteId = s.id;
+    loadScriptsFromSprite(s);
+  } else {
+    list.forEach(sd => {
+      const s = createSprite(sd.emoji || '🐱', sd.name || 'Sprite');
+      s.px = sd.px || 0;
+      s.py = sd.py || 0;
+      s.dir = sd.dir || 90;
+      s.size = sd.size || 100;
+      if(sd.effects) Object.assign(s.effects, sd.effects);
+      if(typeof sd.visible === 'boolean') s.visible = sd.visible;
+      if(sd.costume) s.costume = sd.costume;
+      if(typeof sd.costumeIndex === 'number') s.costumeIndex = sd.costumeIndex;
+      if(sd.costumes) s.costumes = [...sd.costumes];
+      s.scriptsHTML = [...(sd.scriptsHTML || [])];
+    });
+    currentSpriteId = data.currentSpriteId != null ? data.currentSpriteId : sprites[0].id;
+    if(!sprites.find(s => s.id === currentSpriteId)) currentSpriteId = sprites[0].id;
+    const cs = getCurrentSprite();
+    loadScriptsFromSprite(cs);
+    document.getElementById('spriteName').value = cs.name;
+    document.getElementById('preview').textContent = cs.emoji;
+    document.getElementById('editingLabel').textContent = '— editing: ' + cs.name;
+  }
+
+  // Variables
+  Object.keys(vars).forEach(k => delete vars[k]);
+  Object.assign(vars, data.vars || {score:0});
+  Object.keys(lists).forEach(k => delete lists[k]);
+  Object.assign(lists, data.lists || {});
+  renderVarList();
+
+  // Sounds
+  Object.keys(sounds).forEach(name => {
+    if(sounds[name].url && sounds[name].url.startsWith('blob:')) URL.revokeObjectURL(sounds[name].url);
+    delete sounds[name];
+  });
+  for(const [name, info] of Object.entries(data.sounds || {})){
+    if(info.dataUrl) addSound(name, info.dataUrl, info.duration, info.dataUrl);
+  }
+  renderSoundList();
+
+  if(typeof data.volume === 'number') currentVolume = data.volume;
+
+  applySpriteTransforms();
+  renderSpriteList();
+  updateCloneBadge();
+  statusMsg('📂 Loaded "' + (data.name || 'project') + '"');
+  document.getElementById('projectsMenu').classList.remove('open');
+}
+
+/* =====================================================================
+   CONFIRM / SAVE MODAL
+   ===================================================================== */
+function showConfirm(title, message){
+  return new Promise(resolve => {
+    const bg = document.getElementById('confirmModalBg');
+    const yesBtn = document.getElementById('confirmYesBtn');
+    const noBtn = document.getElementById('confirmNoBtn');
+    document.getElementById('confirmTitle').textContent = title || 'Are you sure?';
+    document.getElementById('confirmMessage').textContent = message || '';
+    bg.classList.add('open');
+    function cleanup(result){
+      bg.classList.remove('open');
+      yesBtn.onclick = null; noBtn.onclick = null; bg.onclick = null;
+      resolve(result);
+    }
+    yesBtn.onclick = () => cleanup(true);
+    noBtn.onclick = () => cleanup(false);
+    bg.onclick = (e) => { if(e.target === bg) cleanup(false); };
+  });
+}
+async function confirmLeaveProject(){
+  return await showConfirm('Leave this project?', 'Unsaved changes will be lost. Are you sure you want to continue?');
+}
+
+let _saveModalUrl = null;
+function closeSaveModal(){
+  const bg = document.getElementById('saveModalBg');
+  if(bg) bg.classList.remove('open');
+  if(_saveModalUrl){ try{ URL.revokeObjectURL(_saveModalUrl); }catch(e){} _saveModalUrl = null; }
+}
+function openSaveModal(){
+  const nameInput = document.getElementById('projectName');
+  let name = (nameInput.value || '').trim();
+  if(!name || name === 'Untitled Project') name = 'My Project';
+  document.getElementById('saveModalName').value = name;
+  refreshSaveModalLink();
+  document.getElementById('saveModalBg').classList.add('open');
+}
+function refreshSaveModalLink(){
+  const name = (document.getElementById('saveModalName').value || 'My Project').trim() || 'My Project';
+  const data = collectProjectData(true);
+  data.name = name;
+  data.savedAt = new Date().toISOString();
+  const safeName = name.replace(/[^\w\- ]+/g,'_').trim() || 'project';
+  const fileName = safeName + '.json';
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  if(_saveModalUrl) try{ URL.revokeObjectURL(_saveModalUrl); }catch(e){}
+  _saveModalUrl = URL.createObjectURL(blob);
+  const a = document.getElementById('saveModalDownload');
+  a.href = _saveModalUrl;
+  a.download = fileName;
+  a.textContent = '⬇ Download "' + fileName + '"';
+  a.onclick = function(){
+    storeInMyProjects(name);
+    setTimeout(() => { closeSaveModal(); }, 250);
+    return true;
+  };
+}
+function saveProject(){ openSaveModal(); }
+async function saveToDeviceFolder(){
+  try{
+    const nameEl = document.getElementById('saveModalName');
+    const name = ((nameEl && nameEl.value) || 'My Project').trim() || 'My Project';
+    document.getElementById('projectName').value = name;
+    const data = collectProjectData(true);
+    data.name = name;
+    data.savedAt = new Date().toISOString();
+    const safeName = name.replace(/[^\w\- ]+/g,'_').trim() || 'project';
+    const fileName = safeName + '.json';
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], {type:'application/json'});
+    storeInMyProjects(name);
+    if(typeof window.showSaveFilePicker === 'function'){
+      try{
+        const handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{description:'Scratch Project', accept:{'application/json':['.json']}}]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        closeSaveModal();
+        statusMsg('✅ Saved: ' + (handle.name || fileName));
+        alert('Saved to your computer!\n\n' + (handle.name || fileName));
+        return;
+      }catch(err){
+        if(err && err.name === 'AbortError'){ statusMsg('Cancelled'); return; }
+      }
+    }
+    try{ forceDownload(blob, fileName); }catch(e){}
+    closeSaveModal();
+    statusMsg('Download started — check Downloads');
+  }catch(err){
+    alert('Save error: ' + (err && err.message ? err.message : String(err)));
+  }
+}
+
+/* =====================================================================
+   OPEN
+   ===================================================================== */
+async function openFromDevice(){
+  if(!(await confirmLeaveProject())) return;
+  if(window.showOpenFilePicker){
+    try{
+      const [handle] = await window.showOpenFilePicker({
+        types: [{description:'Scratch Project', accept:{'application/json':['.json']}}],
+        multiple: false
+      });
+      const file = await handle.getFile();
+      const text = await file.text();
+      const data = JSON.parse(text);
+      loadProjectData(data);
+      storeInMyProjects(data.name || file.name.replace(/\.json$/i,''));
+      statusMsg('📂 Opened from your computer');
+      return;
+    }catch(err){
+      if(err.name === 'AbortError') return;
+    }
+  }
+  window._projectOpenConfirmed = true;
+  document.getElementById('projectFileInput').click();
+}
+async function uploadProject(e){
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  if(window._projectOpenConfirmed){
+    window._projectOpenConfirmed = false;
+  } else if(!(await confirmLeaveProject())){
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      loadProjectData(data);
+      storeInMyProjects(data.name || file.name.replace(/\.json$/i,''));
+      statusMsg('📂 Opened "' + (data.name || file.name) + '"');
+    }catch(err){
+      alert('Could not read project file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* =====================================================================
+   NEW / DO-SAVE / DO-OPEN
+   ===================================================================== */
+function resetToNewProject(){
+  stopProject();
+  document.getElementById('projectName').value = 'Untitled Project';
+  // wipe sprites
+  sprites.forEach(s => {
+    if(s.el && s.el.parentNode) s.el.parentNode.removeChild(s.el);
+    if(s.bubbles){
+      if(s.bubbles.say && s.bubbles.say.parentNode) s.bubbles.say.parentNode.removeChild(s.bubbles.say);
+      if(s.bubbles.think && s.bubbles.think.parentNode) s.bubbles.think.parentNode.removeChild(s.bubbles.think);
+    }
+  });
+  sprites = [];
+  spriteIdCounter = 0;
+  currentSpriteId = 0;
+  const s = createSprite('🐱', 'Cat');
+  currentSpriteId = s.id;
+  loadScriptsFromSprite(s);
+  document.getElementById('spriteName').value = s.name;
+  document.getElementById('preview').textContent = s.emoji;
+  document.getElementById('editingLabel').textContent = '— editing: ' + s.name;
+  renderSpriteList();
+
+  // wipe variables
+  Object.keys(vars).forEach(k => { if(k !== 'score') delete vars[k]; });
+  vars.score = 0;
+  Object.keys(lists).forEach(k => delete lists[k]);
+  renderVarList();
+
+  // wipe sounds
+  Object.keys(sounds).forEach(name => {
+    if(sounds[name].url && sounds[name].url.startsWith('blob:')) URL.revokeObjectURL(sounds[name].url);
+    delete sounds[name];
+  });
+  renderSoundList();
+
+  applySpriteTransforms();
+  updateCloneBadge();
+  statusMsg('New project ready');
+}
+async function newProject(){
+  const yes = await showConfirm('Start a new project?', 'Unsure? Unsaved changes will be lost.');
+  if(!yes) return;
+  resetToNewProject();
+}
+async function doSave(){
+  try{
+    let name = (document.getElementById('projectName').value || '').trim();
+    if(!name || name === 'Untitled Project'){
+      name = prompt('Project name:', 'My Project');
+      if(name === null) return;
+      name = (name || 'My Project').trim() || 'My Project';
+      document.getElementById('projectName').value = name;
+    }
+    const data = collectProjectData(true);
+    data.name = name;
+    data.savedAt = new Date().toISOString();
+    const fileName = (name.replace(/[^\w\- ]+/g,'_').trim() || 'project') + '.json';
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], {type:'application/json'});
+    storeInMyProjects(name);
+    if(typeof window.showSaveFilePicker === 'function' && window.isSecureContext){
+      try{
+        const handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{description:'Scratch Project', accept:{'application/json':['.json']}}]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        alert('Saved!\n\n' + (handle.name || fileName) + '\n\nPick this file later with 📂 Open.');
+        return;
+      }catch(err){
+        if(err && err.name === 'AbortError') return;
+      }
+    }
+    forceDownload(blob, fileName);
+    statusMsg('⬇ Downloaded ' + fileName);
+  }catch(err){
+    alert('Save failed: ' + (err && err.message ? err.message : err));
+  }
+}
+async function doOpen(){
+  if(!(await confirmLeaveProject())) return;
+  if(typeof window.showOpenFilePicker === 'function'){
+    try{
+      const [handle] = await window.showOpenFilePicker({
+        types: [{description:'Project', accept:{'application/json':['.json']}}],
+        multiple: false
+      });
+      const file = await handle.getFile();
+      const text = await file.text();
+      const data = JSON.parse(text);
+      loadProjectData(data);
+      storeInMyProjects(data.name || file.name.replace(/\.json$/i,''));
+      alert('Opened: ' + (data.name || file.name));
+    }catch(err){
+      if(err && err.name === 'AbortError') return;
+      document.getElementById('projectFileInput').click();
+    }
+    return;
+  }
+  document.getElementById('projectFileInput').click();
+}
+
+/* =====================================================================
+   WELCOME
+   ===================================================================== */
+function closeWelcome(){
+  const w = document.getElementById('welcomeBg');
+  if(w) w.style.display = 'none';
+  try{ localStorage.setItem('scratchWelcomeSeen','1'); }catch(e){}
+}
+function showWelcome(force){
+  const w = document.getElementById('welcomeBg');
+  if(!w) return;
+  if(force){ w.style.display = 'flex'; return; }
+  try{
+    if(localStorage.getItem('scratchWelcomeSeen') === '1'){ w.style.display = 'none'; return; }
+  }catch(e){}
+  w.style.display = 'flex';
+}
+
+function statusMsg(text){
+  let t = document.getElementById('saveToast');
+  if(!t){
+    t = document.createElement('span');
+    t.id = 'saveToast';
+    t.style.cssText = 'margin-left:8px;font-size:12px;opacity:.95;background:#4caf50;padding:4px 8px;border-radius:4px;';
+    document.querySelector('.topbar').appendChild(t);
+  }
+  t.textContent = text;
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => { t.textContent = ''; }, 5000);
+}
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+// Create the initial Cat sprite
+const initialCat = createSprite('🐱', 'Cat');
+currentSpriteId = initialCat.id;
+document.getElementById('editingLabel').textContent = '— editing: ' + initialCat.name;
+renderSpriteList();
+renderVarList();
+renderSoundList();
+applySpriteTransforms();
+updateCloneBadge();
+showWelcome(false);
+
+// click on backdrop deselects sprite selection (but keeps current sprite)
+document.getElementById('stage').addEventListener('click', (e) => {
+  if(e.target.id === 'stage' && !isRunning){
+    // do nothing — keep current selection
+  }
+});
+
+// close emoji modal on backdrop click
+document.getElementById('emojiModalBg').addEventListener('click', (e) => {
+  if(e.target.id === 'emojiModalBg') closeEmojiPicker();
+});
+
+// close save modal on backdrop click
+document.getElementById('saveModalBg').addEventListener('click', (e) => {
+  if(e.target.id === 'saveModalBg') closeSaveModal();
+});
+
+// saveModalName live refresh
+setTimeout(() => {
+  const inp = document.getElementById('saveModalName');
+  if(inp) inp.addEventListener('input', () => { try{ refreshSaveModalLink(); }catch(e){} });
+}, 0);
+</script>
+</body>
+</html>
